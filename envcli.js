@@ -41,9 +41,20 @@ const setEnvProperty = (content, key, value) => {
     }
     return [...lines, `${key}=${value}`].join("\n");
 };
+const removeEnvProperty = (content, key, value) => {
+    let lines = content.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+        let k = removeStartingSpaces(lines[i].split("=")[0]);
+        if (k === key) {
+            delete lines[i];
+            return lines.join("\n");
+        }
+    }
+    return [...lines, `${key}=${value}`].join("\n");
+};
 const readFile = file => new Promise(r => fs.readFile(file, (error, data) => error ? r({error}) : r({data})));
 module.exports = {
-    setEnvProperty, stringifyEnvFile, parseEnv
+    setEnvProperty, removeEnvProperty, stringifyEnvFile, parseEnv
 };
 (async () => {
     if (!direct) return;
@@ -115,6 +126,11 @@ module.exports = {
             fs.writeFileSync(fileAct, setEnvProperty((await readFile(fileAct)).data.toString(), extraArgs["-key"], extraArgs["-value"]));
             log(GREEN, "  The key \"" + extraArgs["-key"] + "\" has been set to \"" + extraArgs["-value"] + "\"!");
             break;
+        case "remove":
+            if (typeof extraArgs["-key"] !== "string") return log(DARK_RED, "  ERROR Wrong usage.\n  ERROR Usage: envcli remove --key myKey");
+            fs.writeFileSync(fileAct, removeEnvProperty((await readFile(fileAct)).data.toString(), extraArgs["-key"]));
+            log(GREEN, "  The key \"" + extraArgs["-key"] + "\" has been removed!");
+            break;
         case "get":
             if (typeof extraArgs["-key"] !== "string") return log(DARK_RED, "  ERROR Wrong usage.\n  ERROR Usage: envcli get --key myKey");
             const p = parseEnv((await readFile(fileAct)).data.toString() || "");
@@ -138,21 +154,22 @@ module.exports = {
             if (!arg[0]) log(RED, "     envcli <command>\n");
 
             log(DARK_RED, "  Usage:");
-            log(RED, "      envcli help   You're here");
-            log(RED, "      envcli open   Selects the environment file");
-            log(RED, "      envcli tree   Makes a tree of the environment file");
-            log(RED, "      envcli raw    Shows the raw content");
-            log(RED, "      envcli set    Sets the property");
-            log(RED, "      envcli get    Gets the property");
+            log(RED, "      envcli help    You're here");
+            log(RED, "      envcli open    Selects the environment file");
+            log(RED, "      envcli tree    Makes a tree of the environment file");
+            log(RED, "      envcli raw     Shows the raw content");
+            log(RED, "      envcli set     Sets the property");
+            log(RED, "      envcli remove  Removes the property");
+            log(RED, "      envcli get     Gets the property");
 
             log(DARK_RED, "\n  Parameters:");
-            log(RED, "      --file        Selects the file to act on");
+            log(RED, "      --file         Selects the file to act on");
             log(RED, "        OR -F");
-            log(RED, "      --key         The key of the property");
+            log(RED, "      --key          The key of the property");
             log(RED, "        OR -K");
-            log(RED, "      --value       The value of the property");
+            log(RED, "      --value        The value of the property");
             log(RED, "        OR -V");
-            log(RED, "      --force       Forces the action");
+            log(RED, "      --force        Forces the action");
             log(RED, "        OR -C");
             break;
     }
