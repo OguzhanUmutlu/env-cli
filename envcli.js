@@ -56,12 +56,14 @@ const readFile = file => new Promise(r => fs.readFile(file, (error, data) => err
         V: "-value",
         C: "-force"
     };
+    const validParameters = ["-file", "-key", "-value", "-force"];
     let cN = null;
     for (let i = 0; i < arg.length; i++) {
-        let n = arg[i];
+        let n = arg[i], nO = n;
         if (n.startsWith("-")) {
             n = n.substring(1);
             n = parameterAliases[n] || n;
+            if (!validParameters.includes(n)) return log(DARK_RED, "  ERROR Invalid parameter " + nO);
             cN = n;
             extraArgs[cN] = true;
         } else if (cN) {
