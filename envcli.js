@@ -1,3 +1,4 @@
+const direct = require.main === module;
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -24,7 +25,7 @@ const removeStartingSpaces = str => {
     return str;
 }
 const objectCombine = (keys, values) => keys.reduce((obj, key, index) => ({...obj, [key]: values[index]}), {});
-const parseEnvFile = content => {
+const parseEnv = content => {
     const lines = content.split("\n").filter(i => !removeStartingSpaces(i).startsWith("#") && removeStartingSpaces(i));
     return objectCombine(lines.map(i => i.split("=")[0]), lines.map(i => i.split("=").slice(1).join("=")));
 }
@@ -41,7 +42,11 @@ const setEnvProperty = (content, key, value) => {
     return [...lines, `${key}=${value}`].join("\n");
 };
 const readFile = file => new Promise(r => fs.readFile(file, (error, data) => error ? r({error}) : r({data})));
+module.exports = {
+    setEnvProperty, stringifyEnvFile, parseEnv
+};
 (async () => {
+    if (!direct) return;
     const BLUE = "5f5de8";
     const DARK_RED = "851717";
     const RED = "e85d5d";
@@ -112,12 +117,12 @@ const readFile = file => new Promise(r => fs.readFile(file, (error, data) => err
             break;
         case "get":
             if (typeof extraArgs["-key"] !== "string") return log(DARK_RED, "  ERROR Wrong usage.\n  ERROR Usage: envcli get --key myKey");
-            const p = parseEnvFile((await readFile(fileAct)).data.toString() || "");
+            const p = parseEnv((await readFile(fileAct)).data.toString() || "");
             if (!Object.keys(p).includes(extraArgs["-key"])) return log(YELLOW, "  The key \"" + extraArgs["-key"] + "\" doesn't have a value.");
             log(GREEN, "  The key \"" + extraArgs["-key"] + "\"'s value is \"" + p[extraArgs["-key"]] + "\"");
             break;
         case "tree":
-            const parsed = parseEnvFile((await readFile(fileAct)).data.toString() || "");
+            const parsed = parseEnv((await readFile(fileAct)).data.toString() || "");
             const ln = [];
             const maxKVLen = Math.min(windowSize.get().width - 10, (Object.keys(parsed).map(i => i.length + parsed[i].length).sort((a, b) => b - 1)[0] * 1) || 0);
             for (let i = 0; i < Object.keys(parsed).length; i++) {
