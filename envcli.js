@@ -2,11 +2,9 @@ const direct = require.main === module;
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const windowSize = require("window-size");
 const NAME = "env" + "cli";
 const args = process.argv;
 const tmpDir = os.tmpdir();
-const OS = {win32: "windows", darwin: "macOS"}[process.platform] || "linux";
 const envCliPath = path.join(tmpDir, NAME);
 let chalk;
 let supportsColor = false;
@@ -17,23 +15,20 @@ try {
     supportsColorErr = chalk["supportsColorStderr"];
 } catch (e) {
     console.warn("  WARN Couldn't find a stable chalk version you are viewing envcli without colors.\n  You can install chalk by using following command:\n  npm i chalk@4.1.2\n");
+    console.error(e);
 }
 const log = (color, str) => console.log(str ? chalk.hex(color)(str) : (str || color));
 
-const removeStartingSpaces = str => {
-    while (str[0] === " ") str = str.substring(1);
-    return str;
-}
 const objectCombine = (keys, values) => keys.reduce((obj, key, index) => ({...obj, [key]: values[index]}), {});
 const parseEnv = content => {
-    const lines = content.split("\n").filter(i => !removeStartingSpaces(i).startsWith("#") && removeStartingSpaces(i));
+    const lines = content.split("\n").filter(i => !i.trimStart().startsWith("#") && i.trimStart());
     return objectCombine(lines.map(i => i.split("=")[0]), lines.map(i => i.split("=").slice(1).join("=")));
 }
 const stringifyEnvFile = json => Object.keys(json).map(k => `${k}=${json[k]}`).join("\n");
 const setEnvProperty = (content, key, value) => {
     const lines = content.split("\n");
     for (let i = 0; i < lines.length; i++) {
-        let k = removeStartingSpaces(lines[i].split("=")[0]);
+        let k = lines[i].split("=")[0].trimStart();
         if (k === key) {
             lines[i] = lines[i].split("=")[0] + "=" + value;
             return lines.join("\n");
@@ -41,16 +36,8 @@ const setEnvProperty = (content, key, value) => {
     }
     return [...lines, `${key}=${value}`].join("\n");
 };
-const removeEnvProperty = (content, key, value) => {
-    let lines = content.split("\n");
-    for (let i = 0; i < lines.length; i++) {
-        let k = removeStartingSpaces(lines[i].split("=")[0]);
-        if (k === key) {
-            delete lines[i];
-            return lines.join("\n");
-        }
-    }
-    return [...lines, `${key}=${value}`].join("\n");
+const removeEnvProperty = (content, key) => {
+    return content.split("\n").filter(i => i.split("=")[0].trimStart() !== key).join("\n");
 };
 const readFile = file => new Promise(r => fs.readFile(file, (error, data) => error ? r({error}) : r({data})));
 module.exports = {
@@ -140,15 +127,17 @@ module.exports = {
         case "tree":
             const parsed = parseEnv((await readFile(fileAct)).data.toString() || "");
             const ln = [];
-            const maxKVLen = Math.min(windowSize.get().width - 10, (Object.keys(parsed).map(i => i.length + parsed[i].length).sort((a, b) => b - 1)[0] * 1) || 0);
+            const longestKey = Object.keys(parsed).sort((a, b) => b.length - a.length)[0].length;
+            const longestValue = Object.values(parsed).sort((a, b) => b.length - a.length)[0].length;
             for (let i = 0; i < Object.keys(parsed).length; i++) {
                 const key = Object.keys(parsed)[i];
                 const value = parsed[key];
-                ln.push("  ├─── " + key + " " + "─".repeat(Math.max(maxKVLen + 3 - key.length - value.length, 3)) + " " + value + " ───┤")
+                ln.push("  ├─── " + key + " " + ("─".repeat(longestKey - key.length + 3)) + " " + value + " " + ("─".repeat(longestValue - value.length + 3)) + "┤")
             }
             const maxLineLen = ln.map(i => i.length).sort((a, b) => b - a)[0];
             log(YELLOW, "  ┌" + "─".repeat(Math.max(maxLineLen - 4, 5)) + "┐");
             ln.forEach(l => log(YELLOW, l));
+            log(YELLOW, "  └" + "─".repeat(Math.max(maxLineLen - 4, 5)) + "┘");
             break;
         default:
             if (!arg[0]) log(RED, "     envcli <command>\n");
